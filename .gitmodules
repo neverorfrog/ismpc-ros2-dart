@@ -1,3 +1,6 @@
 [submodule "src/ismpc-cpp"]
 	path = src/ismpc-cpp
 	url = https://github.com/neverorfrog/ismpc-cpp.git
+[submodule "src/nao_lola"]
+	path = src/nao_lola
+	url = https://github.com/neverorfrog/nao_lola.git
