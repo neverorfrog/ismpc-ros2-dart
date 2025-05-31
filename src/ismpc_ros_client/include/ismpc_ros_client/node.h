@@ -1,10 +1,10 @@
 #pragma once
 
+#include "ismpc_ros_client/mpc_interface.h"
 #include <chrono>
 #include <cmath>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include "ismpc_ros_client/mpc_interface.h"
 
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> fsec;
@@ -16,7 +16,13 @@ namespace ros {
 class RosWalkEngine : public rclcpp::Node {
 public:
   RosWalkEngine();
+
+  /**
+   @brief Called every delta seconds to update the MPC state.
+   */
   void update();
+
+  
 
 private:
   rclcpp::TimerBase::SharedPtr timer;

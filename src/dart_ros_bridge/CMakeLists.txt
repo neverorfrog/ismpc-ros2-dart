@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 # ============================= PROJECT SETUP ===============================================
-project(ismpc_ros_client VERSION 0.1 LANGUAGES CXX)
-set(PROJECT_LIB ismpc_ros_client)
+project(dart_ros_bridge VERSION 0.1 LANGUAGES CXX)
+set(PROJECT_LIB dart_ros_bridge)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -27,11 +26,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/executables")
 set(PACKAGE_DEPS
     rclcpp
     ament_index_cpp
-    pinocchio
-    ismpc_cpp
+    geometry_msgs
+    ismpc_interfaces
 )
 
 find_package(ament_cmake REQUIRED)
+
+find_package(OpenGL REQUIRED)
+find_package(DART 6.15.0 REQUIRED COMPONENTS gui-osg utils-urdf dart CONFIG)
 
 foreach(PACKAGE ${PACKAGE_DEPS})
     find_package(${PACKAGE} REQUIRED)
@@ -44,13 +46,15 @@ endforeach()
 
 # ===========================================================================================
 
-
-# ============================ ISMPC_ROS_CLIENT LIBRARY ========================================
+# ============================ DART_ROS_BRIDGE LIBRARY ========================================
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 file(GLOB_RECURSE SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_library(${PROJECT_LIB} STATIC ${SRCS})
 ament_target_dependencies(${PROJECT_LIB} ${PACKAGE_DEPS})
-target_link_libraries(${PROJECT_LIB} pinocchio::pinocchio)
+target_link_libraries(${PROJECT_LIB} 
+  $<BUILD_INTERFACE:cxx_setup>
+  ${DART_LIBRARIES}
+)
 target_include_directories(${PROJECT_LIB}
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -65,6 +69,7 @@ ament_target_dependencies(${PROJECT_LIB}_exec ${PACKAGE_DEPS})
 target_link_libraries(${PROJECT_LIB}_exec ${PROJECT_LIB})
 
 # ===========================================================================================
+
 
 # ============================== PACKAGE INSTALL ============================================
 install(DIRECTORY include/ DESTINATION include/)
