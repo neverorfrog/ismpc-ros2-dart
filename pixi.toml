@@ -9,7 +9,7 @@ version = "0.1.0"
 [tasks]
 build = {cmd = "colcon build", inputs = ["src"]}
 clean = "rm -rf install log build"
-# ismpc = "ros2 launch nao_webots ismpc.launch.py"
+ismpc = "ros2 launch ismpc_ros_client ismpc.launch.py"
 # build-run-ismpc = "colcon build && ros2 launch ismpc_client ismpc.launch.py"
 
 [activation]
@@ -27,6 +27,7 @@ ros-humble-turtlesim = ">=1.4.2,<2"
 colcon-common-extensions = ">=0.3.0,<0.4"
 setuptools = "<=58.2.0"
 nanobind = ">=2.7.0,<3"
+pinocchio = ">=3.7.0,<4"
 
 [pypi-dependencies]
 opencv-python = "==4.10.0"
