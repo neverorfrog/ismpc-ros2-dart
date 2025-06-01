@@ -1777,7 +1777,6 @@ packages:
   - libstdcxx-ng >=12
   license: MPL-2.0
   license_family: MOZILLA
-  purls: []
   size: 1088433
   timestamp: 1690272126173
 - conda: https://conda.anaconda.org/conda-forge/linux-64/eigenpy-3.10.3-np20py311h2672b3f_0.conda

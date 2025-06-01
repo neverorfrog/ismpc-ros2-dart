@@ -11,6 +11,7 @@ build = {cmd = "colcon build", inputs = ["src"]}
 clean = "rm -rf install log build"
 ismpc = "ros2 launch ismpc_ros_client ismpc.launch.py"
 dart = "ros2 launch dart_ros_bridge dart.launch.py"
+update-rviz = "cp install/dart_ros_bridge/share/dart_ros_bridge/config/config.rviz src/dart_ros_bridge/config" 
 
 [activation]
 scripts = ["install/setup.sh"]
@@ -31,3 +32,4 @@ pinocchio = ">=3.7.0,<4"
 dartsim-cpp = ">=6.15.0,<7"
 ros-humble-joint-state-publisher-gui = ">=2.4.0,<3"
 ros-humble-xacro = ">=2.0.8,<3"
+eigen = ">=3.4.0,<4"

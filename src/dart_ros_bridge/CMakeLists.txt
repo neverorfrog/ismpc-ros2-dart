@@ -32,6 +32,8 @@ set(PACKAGE_DEPS
     sensor_msgs
     visualization_msgs
     tf2_ros
+    tf2_eigen
+    Eigen3
 )
 
 find_package(ament_cmake REQUIRED)
