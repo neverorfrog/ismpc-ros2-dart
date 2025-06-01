@@ -1,6 +1,4 @@
 #include "dart_ros_bridge/node.h"
-#include <dart/gui/osg/ImGuiViewer.hpp>
-#include <osgViewer/config/SingleWindow>
 
 namespace ismpc {
 namespace ros {
@@ -9,13 +7,14 @@ DartBridgeNode::DartBridgeNode() : Node("dart_ros_bridge") {
 
   try {
     this->constructWorld();
-    this->constructViewer();
-    // simTimer = this->create_wall_timer(
-    //     std::chrono::milliseconds(10),
-    //     std::bind(&DartBridgeNode::simulationCallback, this));
-    // visTimer = this->create_wall_timer(
-    //     std::chrono::milliseconds(20),
-    //     std::bind(&DartBridgeNode::visualizationCallback, this));
+    sim_data_pub =
+        this->create_publisher<ismpc_interfaces::msg::SimData>("sim_data", 10);
+    marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+        "robot_markers", 10);
+    tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    simTimer = this->create_wall_timer(
+        std::chrono::milliseconds(10),
+        std::bind(&DartBridgeNode::simulationCallback, this));
     start = Time::now();
     RCLCPP_INFO(this->get_logger(), "DART world started");
   } catch (const std::exception &e) {
@@ -39,15 +38,86 @@ void DartBridgeNode::simulationCallback() {
   start = now;
 
   world->step();
+
+  // Publish robot state for RViz
+  publishWorldFrame();
+  publishSimData();
+  publishMarkers();
 }
 
-void DartBridgeNode::visualizationCallback() {
-  if (!viewer) {
-    RCLCPP_ERROR(this->get_logger(), "Viewer is not initialized.");
+void DartBridgeNode::publishSimData() {
+  if (!robot)
     return;
+
+  auto time = this->world->getTime();
+
+  auto sim_data = ismpc_interfaces::msg::SimData();
+  sim_data.time = time;
+
+  sim_data_pub->publish(sim_data);
+}
+
+void DartBridgeNode::publishMarkers() {
+  if (!robot)
+    return;
+
+  auto marker_array = visualization_msgs::msg::MarkerArray();
+
+  for (size_t i = 0; i < robot->getNumBodyNodes(); i++) {
+    auto body = robot->getBodyNode(i);
+    auto transform = body->getWorldTransform();
+
+    // Create a simple sphere marker for each body
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = "world";
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "robot_bodies";
+    marker.id = i;
+    marker.type = visualization_msgs::msg::Marker::SPHERE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    // Position from DART transform
+    marker.pose.position.x = transform.translation()[0];
+    marker.pose.position.y = transform.translation()[1];
+    marker.pose.position.z = transform.translation()[2];
+
+    // Orientation from DART transform
+    Eigen::Quaterniond quat(transform.rotation());
+    marker.pose.orientation.x = quat.x();
+    marker.pose.orientation.y = quat.y();
+    marker.pose.orientation.z = quat.z();
+    marker.pose.orientation.w = quat.w();
+
+    // Size and color
+    marker.scale.x = marker.scale.y = marker.scale.z = 0.05;
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+
+    marker_array.markers.push_back(marker);
   }
 
-  viewer->frame();
+  marker_pub->publish(marker_array);
+}
+
+void DartBridgeNode::publishWorldFrame() {
+  // Publish world frame transform
+  geometry_msgs::msg::TransformStamped world_transform;
+  world_transform.header.stamp = this->get_clock()->now();
+  world_transform.header.frame_id = "world";
+  world_transform.child_frame_id = "base_link";
+
+  // Identity transform (no rotation or translation)
+  world_transform.transform.translation.x = 0.0;
+  world_transform.transform.translation.y = 0.0;
+  world_transform.transform.translation.z = 0.0;
+  world_transform.transform.rotation.x = 0.0;
+  world_transform.transform.rotation.y = 0.0;
+  world_transform.transform.rotation.z = 0.0;
+  world_transform.transform.rotation.w = 1.0;
+
+  tf_broadcaster->sendTransform(world_transform);
 }
 
 void DartBridgeNode::constructWorld() {
@@ -105,33 +175,19 @@ void DartBridgeNode::constructWorld() {
     }
   }
 
+  for (const auto &[key, value] : INITIAL_CONFIG) {
+    robot->setPosition(robot->getDof(key)->getIndexInSkeleton(),
+                       value * M_PI / 180.0);
+  }
+
+  const auto &lsole_pos =
+      robot->getBodyNode("l_sole")->getTransform().translation();
+  const auto &rsole_pos =
+      robot->getBodyNode("r_sole")->getTransform().translation();
+  robot->setPosition(5, -(lsole_pos.z() + rsole_pos.z()) / 2.0);
+
   world->addSkeleton(robot);
   world->addSkeleton(ground);
-}
-
-void DartBridgeNode::constructViewer() {
-
-  if (!world) {
-    RCLCPP_ERROR(this->get_logger(), "World is not initialized.");
-    return;
-  }
-  node = std::make_unique<dart::gui::osg::WorldNode>(world);
-  if (!node) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to create WorldNode.");
-    return;
-  }
-  RCLCPP_INFO(this->get_logger(), "Creating Viewer...");
-  viewer = std::make_unique<dart::gui::osg::Viewer>();
-  RCLCPP_INFO(this->get_logger(), "Viewer created successfully.");
-
-  RCLCPP_INFO(this->get_logger(), "Setting up window...");
-  viewer->apply(new osgViewer::SingleWindow(0, 0, 800, 600));
-  viewer->realize();
-  RCLCPP_INFO(this->get_logger(), "Window setup complete.");
-
-  RCLCPP_INFO(this->get_logger(), "Adding WorldNode to viewer...");
-  viewer->addWorldNode(node.get(), true);
-  RCLCPP_INFO(this->get_logger(), "WorldNode added successfully.");
 }
 
 } // namespace ros

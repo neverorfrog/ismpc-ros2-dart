@@ -29,12 +29,13 @@ set(PACKAGE_DEPS
     geometry_msgs
     ismpc_interfaces
     ismpc_cpp
+    sensor_msgs
+    visualization_msgs
+    tf2_ros
 )
 
 find_package(ament_cmake REQUIRED)
-
-find_package(OpenGL REQUIRED)
-find_package(DART 6.15.0 REQUIRED COMPONENTS gui-osg utils-urdf dart CONFIG)
+find_package(DART 6.15.0 REQUIRED COMPONENTS utils-urdf dart CONFIG)
 
 foreach(PACKAGE ${PACKAGE_DEPS})
     find_package(${PACKAGE} REQUIRED)
@@ -75,7 +76,7 @@ target_link_libraries(${PROJECT_LIB}_exec ${PROJECT_LIB})
 # ============================== PACKAGE INSTALL ============================================
 install(DIRECTORY include/ DESTINATION include/)
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
-install(DIRECTORY config/ DESTINATION config/)
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
 install(TARGETS ${PROJECT_LIBRARY} ${PROJECT_LIB}_exec
     EXPORT ${PROJECT_NAME}Targets

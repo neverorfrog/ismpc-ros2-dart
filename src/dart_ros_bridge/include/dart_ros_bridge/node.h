@@ -1,18 +1,19 @@
 #pragma once
 
+#include "ismpc_interfaces/msg/sim_data.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <chrono>
 #include <cmath>
 #include <dart/dart.hpp>
 #include <dart/dynamics/BodyNode.hpp>
-#include <dart/gui/gui.hpp>
-#include <dart/gui/osg/WorldNode.hpp>
-#include <dart/gui/osg/osg.hpp>
-#include <osgViewer/config/SingleWindow>
 #include <dart/utils/urdf/urdf.hpp>
 #include <dart/utils/utils.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 typedef std::chrono::high_resolution_clock Time;
 
@@ -32,24 +33,22 @@ public:
 
 private:
   rclcpp::TimerBase::SharedPtr simTimer;
-  rclcpp::TimerBase::SharedPtr visTimer;
   std::chrono::_V2::system_clock::time_point start;
 
   dart::simulation::WorldPtr world;
   dart::dynamics::SkeletonPtr robot;
-  std::unique_ptr<dart::gui::osg::WorldNode> node;
-  std::unique_ptr<dart::gui::osg::Viewer> viewer;
+
+  // Publishers
+  rclcpp::Publisher<ismpc_interfaces::msg::SimData>::SharedPtr sim_data_pub;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
+
+  rclcpp::Logger logger = rclcpp::get_logger("DartBridgeNode");
+
   /**
    * @brief Constructs and initializes a DART simulation world
    */
   void constructWorld();
-
-  /**
-   * @brief Constructs and initializes the DART viewer
-   *
-   * Sets up the viewer to visualize the DART simulation world.
-   */
-  void constructViewer();
 
   /**
    * @brief Updates the DART simulation world
@@ -60,10 +59,30 @@ private:
   void simulationCallback();
 
   /**
-   * @brief Updates the DART viewer
+   * @brief Publishes the current state of the robot from simulation
    *
+   * This method publishes the state of the robot to a ROS topic.
    */
-  void visualizationCallback();
+  void publishSimData();
+
+  /**
+   * @brief Publishes visualization markers for the robot
+   *
+   * This method publishes visualization markers to a ROS topic for debugging
+   * and visualization purposes.
+   */
+  void publishMarkers();
+  void publishWorldFrame();
+
+  const std::unordered_map<std::string, double> INITIAL_CONFIG = {
+      {"CHEST_P", 0.0},      {"CHEST_Y", 0.0},      {"NECK_P", 0.0},
+      {"NECK_Y", 0.0},       {"R_HIP_Y", 0.0},      {"R_HIP_R", -3.0},
+      {"R_HIP_P", -25.0},    {"R_KNEE_P", 50.0},    {"R_ANKLE_P", -25.0},
+      {"R_ANKLE_R", 3.0},    {"L_HIP_Y", 0.0},      {"L_HIP_R", 3.0},
+      {"L_HIP_P", -25.0},    {"L_KNEE_P", 50.0},    {"L_ANKLE_P", -25.0},
+      {"L_ANKLE_R", -3.0},   {"R_SHOULDER_P", 4.0}, {"R_SHOULDER_R", -8.0},
+      {"R_SHOULDER_Y", 0.0}, {"R_ELBOW_P", -25.0},  {"L_SHOULDER_P", 4.0},
+      {"L_SHOULDER_R", 8.0}, {"L_SHOULDER_Y", 0.0}, {"L_ELBOW_P", -25.0}};
 };
 
 } // namespace ros
