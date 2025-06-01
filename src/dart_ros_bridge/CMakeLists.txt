@@ -28,6 +28,7 @@ set(PACKAGE_DEPS
     ament_index_cpp
     geometry_msgs
     ismpc_interfaces
+    ismpc_cpp
 )
 
 find_package(ament_cmake REQUIRED)

@@ -17,17 +17,15 @@ class RosWalkEngine : public rclcpp::Node {
 public:
   RosWalkEngine();
 
-  /**
-   @brief Called every delta seconds to update the MPC state.
-   */
-  void update();
-
-  
-
 private:
   rclcpp::TimerBase::SharedPtr timer;
   std::chrono::_V2::system_clock::time_point start;
   MpcInterface mpc_interface_;
+
+  /**
+ @brief Called every delta seconds to update the MPC state.
+ */
+  void update();
 
   // Logging
   rclcpp::Logger logger = rclcpp::get_logger("RosWalkEngine");
