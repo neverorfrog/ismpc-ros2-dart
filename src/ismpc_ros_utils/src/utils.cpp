@@ -1,4 +1,4 @@
-#include "dart_ros_bridge/utils.h"
+#include "ismpc_ros_utils/utils.h"
 
 namespace ismpc {
 namespace ros {
@@ -22,8 +22,23 @@ TransformStamped ConversionUtils::toRosTransform(const Eigen::Isometry3d &iso, c
     return t;
 }
 
-Vector3 ConversionUtils::toRosVector(const Eigen::Vector3d &vec) {
-    Vector3 v;
+geometry_msgs::msg::Pose ConversionUtils::toRosPose(const Pose3& pose) {
+    geometry_msgs::msg::Pose p;
+    p.position.x = pose.translation.x();
+    p.position.y = pose.translation.y();
+    p.position.z = pose.translation.z();
+
+    const auto& rot_quaternion = Eigen::Quaterniond(pose.rotation.matrix());
+    p.orientation.x = rot_quaternion.x();
+    p.orientation.y = rot_quaternion.y();
+    p.orientation.z = rot_quaternion.z();
+    p.orientation.w = rot_quaternion.w();
+
+    return p;
+}
+
+geometry_msgs::msg::Vector3 ConversionUtils::toRosVector(const Eigen::Vector3d &vec) {
+    geometry_msgs::msg::Vector3 v;
     v.x = vec.x();
     v.y = vec.y();
     v.z = vec.z();

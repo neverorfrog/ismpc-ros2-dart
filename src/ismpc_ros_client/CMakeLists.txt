@@ -29,6 +29,8 @@ set(PACKAGE_DEPS
     ament_index_cpp
     pinocchio
     ismpc_cpp
+    ismpc_interfaces
+    ismpc_ros_utils
 )
 
 find_package(ament_cmake REQUIRED)
@@ -48,6 +50,7 @@ endforeach()
 # ============================ ISMPC_ROS_CLIENT LIBRARY ========================================
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 file(GLOB_RECURSE SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+list(FILTER SRCS EXCLUDE REGEX ".*main\\.cpp$")
 add_library(${PROJECT_LIB} STATIC ${SRCS})
 ament_target_dependencies(${PROJECT_LIB} ${PACKAGE_DEPS})
 target_link_libraries(${PROJECT_LIB} pinocchio::pinocchio)

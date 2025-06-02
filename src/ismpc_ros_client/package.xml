@@ -13,6 +13,8 @@
   <depend>ament_index_cpp</depend>
   <depend>std_msgs</depend>
   <depend>ismpc_cpp</depend>
+  <depend>ismpc_interfaces</depend>
+  <depend>ismpc_ros_utils</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

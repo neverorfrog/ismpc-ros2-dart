@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 
 # ============================= PROJECT SETUP ===============================================
-project(dart_ros_bridge VERSION 0.1 LANGUAGES CXX)
-set(PROJECT_LIB dart_ros_bridge)
+project(ismpc_ros_utils VERSION 0.1 LANGUAGES CXX)
+set(PROJECT_LIB ismpc_ros_utils)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -22,23 +22,20 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/executables")
 
 # =============================================================================================
 
+
 # ============================== DEPENDENCIES ===============================================
 set(PACKAGE_DEPS
     rclcpp
     ament_index_cpp
+    std_msgs
     geometry_msgs
-    ismpc_interfaces
-    ismpc_cpp
-    sensor_msgs
-    visualization_msgs
     tf2_ros
     tf2_eigen
     Eigen3
-    ismpc_ros_utils
+    ismpc_cpp
 )
 
 find_package(ament_cmake REQUIRED)
-find_package(DART 6.15.0 REQUIRED COMPONENTS utils-urdf dart CONFIG)
 
 foreach(PACKAGE ${PACKAGE_DEPS})
     find_package(${PACKAGE} REQUIRED)
@@ -51,14 +48,14 @@ endforeach()
 
 # ===========================================================================================
 
-# ============================ DART_ROS_BRIDGE LIBRARY ========================================
+
+# ============================ ISMPC_INTERFACES LIBRARY ========================================
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 file(GLOB_RECURSE SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_library(${PROJECT_LIB} STATIC ${SRCS})
 ament_target_dependencies(${PROJECT_LIB} ${PACKAGE_DEPS})
 target_link_libraries(${PROJECT_LIB} 
   $<BUILD_INTERFACE:cxx_setup>
-  ${DART_LIBRARIES}
 )
 target_include_directories(${PROJECT_LIB}
     PUBLIC
@@ -66,22 +63,12 @@ target_include_directories(${PROJECT_LIB}
     $<INSTALL_INTERFACE:include>
 )
 
-# ===========================================================================================
-
-# ======================== ISMPC_ROS_CLIENT NODE EXECUTABLE =====================================
-add_executable(${PROJECT_LIB}_exec src/main.cpp)
-ament_target_dependencies(${PROJECT_LIB}_exec ${PACKAGE_DEPS})
-target_link_libraries(${PROJECT_LIB}_exec ${PROJECT_LIB})
-
-# ===========================================================================================
-
+# ============================================================================================
 
 # ============================== PACKAGE INSTALL ============================================
 install(DIRECTORY include/ DESTINATION include/)
-install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
-install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
-install(TARGETS ${PROJECT_LIBRARY} ${PROJECT_LIB}_exec
+install(TARGETS ${PROJECT_LIB}
     EXPORT ${PROJECT_NAME}Targets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib

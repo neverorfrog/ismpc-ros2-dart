@@ -8,6 +8,7 @@
 #include "ismpc_cpp/representations/reference.h"
 #include "ismpc_cpp/representations/state.h"
 #include "ismpc_cpp/types/configs.h"
+#include "ismpc_interfaces/msg/lip_data.hpp"
 
 namespace ismpc {
 namespace ros {
@@ -33,7 +34,7 @@ public:
    * It computes the footstep plan and updates the state representation.
    * The state is updated periodically (simulation delta) using a listener.
    */
-  void step();
+  void step(const ismpc_interfaces::msg::LipData &lip_data);
 
   /**
    * @brief Set the MPC state from the provided sim data.

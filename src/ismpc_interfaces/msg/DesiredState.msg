@@ -1,0 +1,6 @@
+std_msgs/Header header
+
+ismpc_interfaces/LipData lip
+ismpc_interfaces/EndEffector left_foot
+ismpc_interfaces/EndEffector right_foot
+ismpc_interfaces/EndEffector torso

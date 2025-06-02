@@ -15,8 +15,8 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include "dart_ros_bridge/utils.h"
-#include "ismpc_interfaces/msg/sim_data.hpp"
+#include "ismpc_ros_utils/utils.h"
+#include "ismpc_interfaces/msg/lip_data.hpp"
 
 typedef std::chrono::high_resolution_clock Time;
 
@@ -36,13 +36,12 @@ class DartBridgeNode : public rclcpp::Node {
 
    private:
     rclcpp::TimerBase::SharedPtr simTimer;
-    std::chrono::_V2::system_clock::time_point start;
 
     dart::simulation::WorldPtr world;
     dart::dynamics::SkeletonPtr robot;
 
     // Publishers
-    rclcpp::Publisher<ismpc_interfaces::msg::SimData>::SharedPtr sim_data_pub;
+    rclcpp::Publisher<ismpc_interfaces::msg::LipData>::SharedPtr lip_data_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
 
@@ -57,6 +56,8 @@ class DartBridgeNode : public rclcpp::Node {
      * @return The computed ZMP as a geometry_msgs::msg::Vector3
      */
     geometry_msgs::msg::Vector3 computeZmp();
+    Eigen::Vector3d zmp_pos = Eigen::Vector3d::Zero();
+    std::pair<Eigen::Vector3d, bool> computeFootZmp(const dart::dynamics::BodyNode& foot) const;
 
     /**
      * @brief Constructs and initializes a DART simulation world
@@ -76,7 +77,7 @@ class DartBridgeNode : public rclcpp::Node {
      *
      * This method publishes the state of the robot to a ROS topic.
      */
-    void publishSimData();
+    void publishLipData();
     void publishTransforms();
 
     /**

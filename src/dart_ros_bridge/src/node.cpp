@@ -1,5 +1,9 @@
 #include "dart_ros_bridge/node.h"
+
+#include <Eigen/src/Core/Matrix.h>
 #include <imgui.h>
+
+using geometry_msgs::msg::TransformStamped;
 
 namespace ismpc {
 namespace ros {
@@ -7,12 +11,11 @@ namespace ros {
 DartBridgeNode::DartBridgeNode() : Node("dart_ros_bridge") {
     try {
         this->constructWorld();
-        sim_data_pub = this->create_publisher<ismpc_interfaces::msg::SimData>("sim_data", 10);
+        lip_data_pub = this->create_publisher<ismpc_interfaces::msg::LipData>("lip_data", 10);
         marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("robot_markers", 10);
         tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
         simTimer = this->create_wall_timer(std::chrono::milliseconds(10),
                                            std::bind(&DartBridgeNode::simulationCallback, this));
-        start = Time::now();
         RCLCPP_INFO(this->get_logger(), "DART world started");
     } catch (const std::exception &e) {
         RCLCPP_ERROR(this->get_logger(), "Failed to load URDF: %s", e.what());
@@ -30,36 +33,24 @@ void DartBridgeNode::simulationCallback() {
 
     // Publish robot state for RViz
     publishWorldFrame();
-    publishSimData();
+    publishLipData();
     publishMarkers();
     publishTransforms();
 }
 
-void DartBridgeNode::publishSimData() {
+void DartBridgeNode::publishLipData() {
     if (!robot)
         return;
 
-    auto sim_data = ismpc_interfaces::msg::SimData();
-    sim_data.header.stamp = this->get_clock()->now();
-    sim_data.time = this->world->getTime();
-    Eigen::VectorXd positions = robot->getPositions();
-    Eigen::VectorXd velocities = robot->getVelocities();
-    Eigen::VectorXd accelerations = robot->getAccelerations();
-    sim_data.qpos = std::vector<double>(positions.size());
-    sim_data.qvel = std::vector<double>(positions.size());
-    sim_data.qacc = std::vector<double>(positions.size());
-    for (int i = 0; i < positions.size(); ++i) {
-        sim_data.qpos[i] = positions[i];
-        sim_data.qvel[i] = velocities[i];
-        sim_data.qacc[i] = accelerations[i];
-    }
+    auto lip_data = ismpc_interfaces::msg::LipData();
+    lip_data.header.stamp = this->get_clock()->now();
 
-    sim_data.com_pos = ConversionUtils::toRosVector(robot->getCOM());
-    sim_data.com_vel = ConversionUtils::toRosVector(robot->getCOMLinearVelocity());
-    sim_data.com_acc = ConversionUtils::toRosVector(robot->getCOMLinearAcceleration());
-    // sim_data.zmp_pos = computeZmp();
+    lip_data.com_pos = ConversionUtils::toRosVector(robot->getCOM());
+    lip_data.com_vel = ConversionUtils::toRosVector(robot->getCOMLinearVelocity());
+    lip_data.com_acc = ConversionUtils::toRosVector(robot->getCOMLinearAcceleration());
+    lip_data.zmp_pos = computeZmp();
 
-    sim_data_pub->publish(sim_data);
+    lip_data_pub->publish(lip_data);
 }
 
 void DartBridgeNode::publishTransforms() {
@@ -70,10 +61,9 @@ void DartBridgeNode::publishTransforms() {
     Eigen::Isometry3d lsole_transform = robot->getBodyNode("l_sole")->getWorldTransform();
     Eigen::Isometry3d rsole_transform = robot->getBodyNode("r_sole")->getWorldTransform();
 
-    // geometry_msgs::msg::TransformStamped base_tf = ConversionUtils::toRosTransform(base_transform, "base");
-    geometry_msgs::msg::TransformStamped torso_tf = ConversionUtils::toRosTransform(torso_transform, "torso");
-    geometry_msgs::msg::TransformStamped lsole_tf = ConversionUtils::toRosTransform(lsole_transform, "l_sole");
-    geometry_msgs::msg::TransformStamped rsole_tf = ConversionUtils::toRosTransform(rsole_transform, "r_sole");
+    TransformStamped torso_tf = ConversionUtils::toRosTransform(torso_transform, "torso");
+    TransformStamped lsole_tf = ConversionUtils::toRosTransform(lsole_transform, "l_sole");
+    TransformStamped rsole_tf = ConversionUtils::toRosTransform(rsole_transform, "r_sole");
 
     std::vector<geometry_msgs::msg::TransformStamped> transforms;
     transforms.push_back(torso_tf);
@@ -84,7 +74,40 @@ void DartBridgeNode::publishTransforms() {
 }
 
 geometry_msgs::msg::Vector3 DartBridgeNode::computeZmp() {
-    return ConversionUtils::toRosVector(Eigen::Vector3d::Zero());
+    const auto &left_foot = robot->getBodyNode("l_sole");
+    const auto &right_foot = robot->getBodyNode("r_sole");
+
+    bool left_contact = false;
+    bool right_contact = false;
+    Eigen::VectorXd grf_L = left_foot->getConstraintImpulse();
+    Eigen::VectorXd grf_R = right_foot->getConstraintImpulse();
+    Eigen::Vector3d left_cop, right_cop;
+
+    if (abs(grf_L[5]) > 0.1) {
+        left_cop << -grf_L(1) / grf_L(5), grf_L(0) / grf_L(5), 0.0;
+        left_cop = left_foot->getWorldTransform().translation()
+                   + left_foot->getWorldTransform().rotation() * left_cop;
+        left_contact = true;
+    }
+
+    if (abs(grf_R[5]) > 0.1) {
+        right_cop << -grf_R(1) / grf_R(5), grf_R(0) / grf_R(5), 0.0;
+        right_cop = right_foot->getWorldTransform().translation()
+                    + right_foot->getWorldTransform().rotation() * right_cop;
+        right_contact = true;
+    }
+
+    if (left_contact && right_contact) {
+        zmp_pos = Eigen::Vector3d((left_cop(0) * grf_L[5] + right_cop(0) * grf_R[5]) / (grf_L[5] + grf_R[5]),
+                                  (left_cop(1) * grf_L[5] + right_cop(1) * grf_R[5]) / (grf_L[5] + grf_R[5]),
+                                  0.0);
+    } else if (left_contact) {
+        zmp_pos = Eigen::Vector3d(left_cop(0), left_cop(1), 0.0);
+    } else if (right_contact) {
+        zmp_pos = Eigen::Vector3d(right_cop(0), right_cop(1), 0.0);
+    }
+
+    return ConversionUtils::toRosVector(zmp_pos);
 }
 
 void DartBridgeNode::publishMarkers() {

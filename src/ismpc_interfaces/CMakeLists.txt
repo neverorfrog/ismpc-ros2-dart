@@ -10,8 +10,9 @@ find_package(geometry_msgs REQUIRED)
 
 # ============================= MESSAGE GENERATION =========================================
 set(msg_files
-  "msg/SimData.msg"
-  "msg/ControlCommand.msg"
+  "msg/LipData.msg"
+  "msg/EndEffector.msg"
+  "msg/DesiredState.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
