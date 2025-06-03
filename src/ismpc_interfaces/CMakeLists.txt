@@ -12,7 +12,7 @@ find_package(geometry_msgs REQUIRED)
 set(msg_files
   "msg/LipData.msg"
   "msg/EndEffector.msg"
-  "msg/DesiredState.msg"
+  "msg/State.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

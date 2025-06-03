@@ -1,0 +1,19 @@
+std_msgs/Header header
+
+int32 k
+float64 tk
+
+ismpc_interfaces/LipData lip
+ismpc_interfaces/LipData desired_lip
+
+ismpc_interfaces/EndEffector left_foot
+ismpc_interfaces/EndEffector desired_left_foot
+
+ismpc_interfaces/EndEffector right_foot
+ismpc_interfaces/EndEffector desired_right_foot
+
+ismpc_interfaces/EndEffector torso
+ismpc_interfaces/EndEffector desired_torso
+
+ismpc_interfaces/EndEffector base
+ismpc_interfaces/EndEffector desired_base

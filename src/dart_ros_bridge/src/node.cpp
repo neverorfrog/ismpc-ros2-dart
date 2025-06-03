@@ -2,6 +2,7 @@
 
 #include <Eigen/src/Core/Matrix.h>
 #include <imgui.h>
+#include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 
 using geometry_msgs::msg::TransformStamped;
 
@@ -11,12 +12,20 @@ namespace ros {
 DartBridgeNode::DartBridgeNode() : Node("dart_ros_bridge") {
     try {
         this->constructWorld();
+        invdyn = InverseDynamics(robot, world);
+
+        // Publishers
         lip_data_pub = this->create_publisher<ismpc_interfaces::msg::LipData>("lip_data", 10);
         marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("robot_markers", 10);
         tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+        // Subscribers
+        state_sub = this->create_subscription<ismpc_interfaces::msg::State>(
+            "state", 10, std::bind(&DartBridgeNode::stateCallback, this, std::placeholders::_1));
+
+        // Internal simulation timer
         simTimer = this->create_wall_timer(std::chrono::milliseconds(10),
                                            std::bind(&DartBridgeNode::simulationCallback, this));
-        RCLCPP_INFO(this->get_logger(), "DART world started");
     } catch (const std::exception &e) {
         RCLCPP_ERROR(this->get_logger(), "Failed to load URDF: %s", e.what());
         return;
@@ -29,13 +38,55 @@ void DartBridgeNode::simulationCallback() {
         return;
     }
 
-    // world->step();
+    // TODO: Testing
+    // if(mpc_step > 250) {
+    //     RCLCPP_INFO(logger, "Simulation step limit reached. Stopping simulation.");
+    //     rclcpp::shutdown();
+    //     return;
+    // }
+    world->step();
 
-    // Publish robot state for RViz
-    publishWorldFrame();
     publishLipData();
-    publishMarkers();
     publishTransforms();
+    publishWorldFrame();
+    publishMarkers();
+}
+
+void DartBridgeNode::stateCallback(const ismpc_interfaces::msg::State::SharedPtr msg) {
+    if (!robot) {
+        RCLCPP_ERROR(this->get_logger(), "Robot is not initialized.");
+        return;
+    }
+
+    mpc_step = msg->k;
+    mpc_time = msg->tk;
+
+    RCLCPP_INFO(logger, "=====================================");
+    RCLCPP_INFO(logger, "Received state update from MPC at time %.3f", mpc_time);
+    RCLCPP_INFO(logger, "\nCOM Position\n(%f, %f, %f)", msg->lip.com_pos.x, msg->lip.com_pos.y,
+                msg->lip.com_pos.z);
+    RCLCPP_INFO(logger, "\nDesired COM Position\n(%f, %f, %f)", msg->desired_lip.com_pos.x,
+                msg->desired_lip.com_pos.y, msg->desired_lip.com_pos.z);
+    RCLCPP_INFO(logger, "\nLeft Foot Position\n(%f, %f, %f)", msg->left_foot.pose.position.x,
+                msg->left_foot.pose.position.y, msg->left_foot.pose.position.z);
+    RCLCPP_INFO(logger, "\nDesired Left Foot Position\n(%f, %f, %f)", msg->desired_left_foot.pose.position.x,
+                msg->desired_left_foot.pose.position.y, msg->desired_left_foot.pose.position.z);
+    RCLCPP_INFO(logger, "\nRight Foot Position\n(%f, %f, %f)", msg->right_foot.pose.position.x,
+                msg->right_foot.pose.position.y, msg->right_foot.pose.position.z);
+    RCLCPP_INFO(logger, "\nDesired Right Foot Position\n(%f, %f, %f)",
+                msg->desired_right_foot.pose.position.x, msg->desired_right_foot.pose.position.y,
+                msg->desired_right_foot.pose.position.z);
+    RCLCPP_INFO(logger, "\nTorso Orientation\n(%f, %f, %f, %f)", msg->torso.pose.orientation.x,
+                msg->torso.pose.orientation.y, msg->torso.pose.orientation.z, msg->torso.pose.orientation.w);
+    RCLCPP_INFO(logger, "\nDesired Torso Orientation\n(%f, %f, %f, %f)",
+                msg->desired_torso.pose.orientation.x, msg->desired_torso.pose.orientation.y,
+                msg->desired_torso.pose.orientation.z, msg->desired_torso.pose.orientation.w);
+    RCLCPP_INFO(logger, "======================================\n\n\n");
+
+    Eigen::VectorXd joint_torques = invdyn.computeJointTorques(msg);
+    for (size_t i = 0; i < robot->getNumDofs() - 6; i++) {
+        robot->setCommand(i + 6, joint_torques(i));
+    }
 }
 
 void DartBridgeNode::publishLipData() {
@@ -62,11 +113,13 @@ void DartBridgeNode::publishTransforms() {
     Eigen::Isometry3d rsole_transform = robot->getBodyNode("r_sole")->getWorldTransform();
 
     TransformStamped torso_tf = ConversionUtils::toRosTransform(torso_transform, "torso");
+    TransformStamped waist_tf = ConversionUtils::toRosTransform(torso_transform, "body");
     TransformStamped lsole_tf = ConversionUtils::toRosTransform(lsole_transform, "l_sole");
     TransformStamped rsole_tf = ConversionUtils::toRosTransform(rsole_transform, "r_sole");
 
     std::vector<geometry_msgs::msg::TransformStamped> transforms;
     transforms.push_back(torso_tf);
+    transforms.push_back(waist_tf);
     transforms.push_back(lsole_tf);
     transforms.push_back(rsole_tf);
 

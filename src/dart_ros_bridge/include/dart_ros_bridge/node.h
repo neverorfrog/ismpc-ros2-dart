@@ -15,8 +15,10 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include "ismpc_ros_utils/utils.h"
+#include "dart_ros_bridge/invdyn.h"
+#include "ismpc_interfaces/msg/state.hpp"
 #include "ismpc_interfaces/msg/lip_data.hpp"
+#include "ismpc_ros_utils/utils.h"
 
 typedef std::chrono::high_resolution_clock Time;
 
@@ -44,6 +46,13 @@ class DartBridgeNode : public rclcpp::Node {
     rclcpp::Publisher<ismpc_interfaces::msg::LipData>::SharedPtr lip_data_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
+
+    // Subscribers
+    rclcpp::Subscription<ismpc_interfaces::msg::State>::SharedPtr state_sub;
+    void stateCallback(const ismpc_interfaces::msg::State::SharedPtr msg);
+    InverseDynamics invdyn;
+    int mpc_step = 0;
+    float mpc_time = 0.0f;
 
     rclcpp::Logger logger = rclcpp::get_logger("DartBridgeNode");
 

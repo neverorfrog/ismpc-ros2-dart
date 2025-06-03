@@ -344,6 +344,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/ply-3.11-pyhd8ed1ab_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/proj-9.5.1-h0054346_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/propcache-0.3.1-py311h2dc5d0c_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/proxsuite-0.7.2-py311hd18a35c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/psutil-7.0.0-py311h9ecbd09_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pthread-stubs-0.4-hb9d3cd8_1002.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pugixml-1.14-h59595ed_0.conda
@@ -677,6 +678,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/sdl2-2.32.54-h3f2d84a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/sdl3-3.2.14-he3e324a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-57.4.0-py311h38be061_2.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/simde-0.8.2-h84d6215_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/sip-6.10.0-py311hfdbb021_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/snappy-1.2.1-h8bd8927_1.conda
@@ -5383,6 +5385,24 @@ packages:
   - pkg:pypi/propcache?source=hash-mapping
   size: 54558
   timestamp: 1744525097548
+- conda: https://conda.anaconda.org/conda-forge/linux-64/proxsuite-0.7.2-py311hd18a35c_1.conda
+  sha256: ce3e9efe08181caa5a1fe7bd0a875d73eaadca4aefe047774eea0ad8aa7aedc4
+  md5: 420b497cdd6020d3909022a143fdd9f6
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - _openmp_mutex >=4.5
+  - eigen
+  - libgcc >=13
+  - libstdcxx >=13
+  - numpy
+  - python >=3.11,<3.12.0a0
+  - python_abi 3.11.* *_cp311
+  - scipy
+  - simde
+  license: BSD-2-Clause
+  license_family: BSD
+  size: 831178
+  timestamp: 1742218837868
 - conda: https://conda.anaconda.org/conda-forge/linux-64/psutil-7.0.0-py311h9ecbd09_0.conda
   sha256: 50d0944b59a9c6dfa6b99cc2632bf8bc9bef9c7c93710390ded6eac953f0182d
   md5: 1a390a54b2752169f5ba4ada5a8108e4
@@ -12375,6 +12395,15 @@ packages:
   - pkg:pypi/setuptools?source=hash-mapping
   size: 1238765
   timestamp: 1667988051040
+- conda: https://conda.anaconda.org/conda-forge/linux-64/simde-0.8.2-h84d6215_0.conda
+  sha256: c055f966ebd72a768e25994ea7bdea0f0eecf481128c01e26f68c4ab11ae21b7
+  md5: aa4dd437f90aa209a0309313af213964
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  license: MIT
+  license_family: MIT
+  size: 480387
+  timestamp: 1724439702451
 - conda: https://conda.anaconda.org/conda-forge/linux-64/sip-6.10.0-py311hfdbb021_0.conda
   sha256: 1eae0d5f0152714cdabb5cd3d480080e164b3fb5f7bd8208df7925d8e173d36b
   md5: 78e5e37d25d5ab01fb5e91b8653b8f6d

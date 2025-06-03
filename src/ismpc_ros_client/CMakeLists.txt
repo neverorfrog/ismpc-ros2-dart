@@ -31,6 +31,8 @@ set(PACKAGE_DEPS
     ismpc_cpp
     ismpc_interfaces
     ismpc_ros_utils
+    tf2_ros
+    tf2_geometry_msgs
 )
 
 find_package(ament_cmake REQUIRED)
