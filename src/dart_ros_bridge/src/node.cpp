@@ -222,15 +222,15 @@ void DartBridgeNode::publishMarkers() {
     zmp_marker.header.frame_id = "world";
     zmp_marker.header.stamp = this->get_clock()->now();
     zmp_marker.ns = "zmp";
-    zmp_marker.id = robot->getNumBodyNodes();  // Unique ID for ZMP marker
+    zmp_marker.id = robot->getNumBodyNodes();
     zmp_marker.type = visualization_msgs::msg::Marker::SPHERE;
     zmp_marker.action = visualization_msgs::msg::Marker::ADD;
     zmp_marker.pose.position.x = zmp_pos.x();
     zmp_marker.pose.position.y = zmp_pos.y();
     zmp_marker.pose.position.z = zmp_pos.z();
-    zmp_marker.pose.orientation.w = 1.0;                                 // No rotation
-    zmp_marker.scale.x = zmp_marker.scale.y = zmp_marker.scale.z = 0.1;  // Size of the ZMP marker
-    zmp_marker.color.r = 1.0;                                            // Red color for ZMP
+    zmp_marker.pose.orientation.w = 1.0;
+    zmp_marker.scale.x = zmp_marker.scale.y = zmp_marker.scale.z = 0.1;
+    zmp_marker.color.r = 1.0;
     zmp_marker.color.g = 0.0;
     zmp_marker.color.b = 0.0;
     zmp_marker.color.a = 1.0;  // Fully opaque
@@ -241,15 +241,15 @@ void DartBridgeNode::publishMarkers() {
     com_marker.header.frame_id = "world";
     com_marker.header.stamp = this->get_clock()->now();
     com_marker.ns = "com";
-    com_marker.id = robot->getNumBodyNodes() + 1;  // Unique ID for COM marker
+    com_marker.id = robot->getNumBodyNodes() + 1;
     com_marker.type = visualization_msgs::msg::Marker::SPHERE;
     com_marker.action = visualization_msgs::msg::Marker::ADD;
     com_marker.pose.position.x = robot->getCOM()[0];
     com_marker.pose.position.y = robot->getCOM()[1];
     com_marker.pose.position.z = robot->getCOM()[2];
-    com_marker.pose.orientation.w = 1.0;                                 // No rotation
-    com_marker.scale.x = com_marker.scale.y = com_marker.scale.z = 0.1;  // Size of the COM marker
-    com_marker.color.r = 0.0;                                            // Blue color for COM
+    com_marker.pose.orientation.w = 1.0;
+    com_marker.scale.x = com_marker.scale.y = com_marker.scale.z = 0.1;
+    com_marker.color.r = 0.0;
     com_marker.color.g = 0.0;
     com_marker.color.b = 1.0;
     com_marker.color.a = 1.0;  // Fully opaque
@@ -260,14 +260,14 @@ void DartBridgeNode::publishMarkers() {
     lfoot_marker.header.frame_id = "world";
     lfoot_marker.header.stamp = this->get_clock()->now();
     lfoot_marker.ns = "left_foot";
-    lfoot_marker.id = robot->getNumBodyNodes() + 2;  // Unique ID for left foot marker
+    lfoot_marker.id = robot->getNumBodyNodes() + 2;
     lfoot_marker.type = visualization_msgs::msg::Marker::SPHERE;
     lfoot_marker.action = visualization_msgs::msg::Marker::ADD;
     lfoot_marker.pose.position.x = lf_pos.x();
     lfoot_marker.pose.position.y = lf_pos.y();
     lfoot_marker.pose.position.z = lf_pos.z();
-    lfoot_marker.pose.orientation.w = 1.0;                                     // No rotation
-    lfoot_marker.scale.x = lfoot_marker.scale.y = lfoot_marker.scale.z = 0.1;  // Size of the left foot marker
+    lfoot_marker.pose.orientation.w = 1.0;
+    lfoot_marker.scale.x = lfoot_marker.scale.y = lfoot_marker.scale.z = 0.1;
     lfoot_marker.color.r = 0.0;
     lfoot_marker.color.g = 1.0;
     lfoot_marker.color.b = 1.0;
@@ -279,19 +279,18 @@ void DartBridgeNode::publishMarkers() {
     rfoot_marker.header.frame_id = "world";
     rfoot_marker.header.stamp = this->get_clock()->now();
     rfoot_marker.ns = "right_foot";
-    rfoot_marker.id = robot->getNumBodyNodes() + 3;  // Unique ID for right foot marker
+    rfoot_marker.id = robot->getNumBodyNodes() + 3;
     rfoot_marker.type = visualization_msgs::msg::Marker::SPHERE;
     rfoot_marker.action = visualization_msgs::msg::Marker::ADD;
     rfoot_marker.pose.position.x = rf_pos.x();
     rfoot_marker.pose.position.y = rf_pos.y();
     rfoot_marker.pose.position.z = rf_pos.z();
-    rfoot_marker.pose.orientation.w = 1.0;  // No rotation
-    rfoot_marker.scale.x = rfoot_marker.scale.y = rfoot_marker.scale.z
-        = 0.1;  // Size of the right foot marker
+    rfoot_marker.pose.orientation.w = 1.0;
+    rfoot_marker.scale.x = rfoot_marker.scale.y = rfoot_marker.scale.z = 0.1;
     rfoot_marker.color.r = 0.0;
     rfoot_marker.color.g = 1.0;
     rfoot_marker.color.b = 1.0;
-    rfoot_marker.color.a = 1.0;  // Fully opaque
+    rfoot_marker.color.a = 1.0;
     marker_array.markers.push_back(rfoot_marker);
 
     marker_pub->publish(marker_array);
@@ -318,7 +317,7 @@ void DartBridgeNode::publishWorldFrame() {
 
 void DartBridgeNode::constructWorld() {
     this->declare_parameter("robot_description_package", "hrp4_description");
-    this->declare_parameter("robot_urdf_filename", "hrp4.urdf");  // Add this line!
+    this->declare_parameter("robot_urdf_filename", "hrp4.urdf");
     this->declare_parameter("ground_urdf_filename", "ground.urdf");
 
     std::string robot_package = this->get_parameter("robot_description_package").as_string();
@@ -338,7 +337,7 @@ void DartBridgeNode::constructWorld() {
     }
     world = dart::simulation::World::create("dart_world");
     world->setGravity(Eigen::Vector3d(0, 0, -9.81));
-    world->setTimeStep(0.012); // TODO: Make configurable
+    world->setTimeStep(0.012);  // TODO: Make configurable
 
     dart::utils::DartLoader::Options options;
     dart::utils::DartLoader loader(options);
