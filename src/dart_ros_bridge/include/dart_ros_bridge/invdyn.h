@@ -63,10 +63,10 @@ class InverseDynamics {
             = {{"com", 1.0}, {"torso", 1.0},{"base", 1.0}, {"joints", 5e-2},  {"l_foot", 1.0}, {"r_foot", 1.0}};
 
         std::unordered_map<std::string, double> pos_gains
-            = {{"com", 10.0}, {"torso", 5.0}, {"base", 5.0},{"joints", 10.0},  {"l_foot", 5.0}, {"r_foot", 5.0}};
+            = {{"com", 10.0}, {"torso", 5.0}, {"base", 5.0},{"joints", 10.0},  {"l_foot", 1.0}, {"r_foot", 1.0}};
 
         std::unordered_map<std::string, double> vel_gains
-            = {{"com", 10.0}, {"torso", 10.0}, {"base", 10.0},{"joints", 1e-1},  {"l_foot", 10.0}, {"r_foot", 10.0}};
+            = {{"com", 10.0}, {"torso", 10.0}, {"base", 10.0},{"joints", 1e-1},  {"l_foot", 2.0}, {"r_foot", 2.0}};
     };
     // clang-format on
 

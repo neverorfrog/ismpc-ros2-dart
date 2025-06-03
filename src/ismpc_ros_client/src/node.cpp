@@ -55,6 +55,9 @@ void RosWalkEngine::updateStateFromLipData(const ismpc_interfaces::msg::LipData:
     latest_lip_data_->com_pos = msg->com_pos;
     latest_lip_data_->com_vel = msg->com_vel;
     latest_lip_data_->com_acc = msg->com_acc;
+    latest_lip_data_->zmp_pos = msg->zmp_pos;
+    latest_lip_data_->left_contact = msg->left_contact;
+    latest_lip_data_->right_contact = msg->right_contact;
     last_lip_data_timestamp_ = this->get_clock()->now();
 }
 
@@ -89,6 +92,8 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     lip_msg.com_vel = ConversionUtils::toRosVector(state.lip.com_vel);
     lip_msg.com_acc = ConversionUtils::toRosVector(state.lip.com_acc);
     lip_msg.zmp_pos = ConversionUtils::toRosVector(state.lip.zmp_pos);
+    lip_msg.left_contact = state.left_foot_contact;
+    lip_msg.right_contact = state.right_foot_contact;
     state_msg.lip = lip_msg;
     desired_lip_msg.header = state_msg.header;
     desired_lip_msg.com_pos = ConversionUtils::toRosVector(state.desired_lip.com_pos);
@@ -101,8 +106,6 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     auto desired_left_foot_msg = ismpc_interfaces::msg::EndEffector();
 
     left_foot_msg.name = "lsole";
-    left_foot_msg.is_foot = true;
-    left_foot_msg.in_contact = state.left_foot_contact;
     left_foot_msg.pose = ConversionUtils::toRosPose(state.left_foot.pose);
     left_foot_msg.velocity.linear = ConversionUtils::toRosVector(state.left_foot.lin_vel);
     left_foot_msg.velocity.angular = ConversionUtils::toRosVector(state.left_foot.ang_vel);
@@ -110,7 +113,6 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     left_foot_msg.acceleration.angular = ConversionUtils::toRosVector(state.left_foot.ang_acc);
     state_msg.left_foot = left_foot_msg;
     desired_left_foot_msg.name = "lsole";
-    desired_left_foot_msg.is_foot = true;
     desired_left_foot_msg.pose = ConversionUtils::toRosPose(state.desired_left_foot.pose);
     desired_left_foot_msg.velocity.linear = ConversionUtils::toRosVector(state.desired_left_foot.lin_vel);
     desired_left_foot_msg.velocity.angular = ConversionUtils::toRosVector(state.desired_left_foot.ang_vel);
@@ -123,8 +125,6 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     auto desired_right_foot_msg = ismpc_interfaces::msg::EndEffector();
 
     right_foot_msg.name = "rsole";
-    right_foot_msg.is_foot = true;
-    right_foot_msg.in_contact = state.right_foot_contact;
     right_foot_msg.pose = ConversionUtils::toRosPose(state.right_foot.pose);
     right_foot_msg.velocity.linear = ConversionUtils::toRosVector(state.right_foot.lin_vel);
     right_foot_msg.velocity.angular = ConversionUtils::toRosVector(state.right_foot.ang_vel);
@@ -132,7 +132,6 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     right_foot_msg.acceleration.angular = ConversionUtils::toRosVector(state.right_foot.ang_acc);
     state_msg.right_foot = right_foot_msg;
     desired_right_foot_msg.name = "rsole";
-    desired_right_foot_msg.is_foot = true;
     desired_right_foot_msg.pose = ConversionUtils::toRosPose(state.desired_right_foot.pose);
     desired_right_foot_msg.velocity.linear = ConversionUtils::toRosVector(state.desired_right_foot.lin_vel);
     desired_right_foot_msg.velocity.angular = ConversionUtils::toRosVector(state.desired_right_foot.ang_vel);
@@ -146,13 +145,11 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     auto desired_torso_msg = ismpc_interfaces::msg::EndEffector();
 
     torso_msg.name = "torso";
-    torso_msg.is_foot = false;
     torso_msg.pose.orientation = ConversionUtils::toRosPose(state.torso.pose).orientation;
     torso_msg.velocity.angular = ConversionUtils::toRosVector(state.torso.ang_vel);
     torso_msg.acceleration.angular = ConversionUtils::toRosVector(state.torso.ang_acc);
     state_msg.torso = torso_msg;
     desired_torso_msg.name = "torso";
-    desired_torso_msg.is_foot = false;
     desired_torso_msg.pose.orientation = ConversionUtils::toRosPose(state.desired_torso.pose).orientation;
     desired_torso_msg.velocity.angular = ConversionUtils::toRosVector(state.desired_torso.ang_vel);
     desired_torso_msg.acceleration.angular = ConversionUtils::toRosVector(state.desired_torso.ang_acc);
@@ -161,13 +158,11 @@ void RosWalkEngine::publishState(const ismpc::State& state) {
     auto base_msg = ismpc_interfaces::msg::EndEffector();
     auto desired_base_msg = ismpc_interfaces::msg::EndEffector();
     base_msg.name = "base";
-    base_msg.is_foot = false;
     base_msg.pose.orientation = ConversionUtils::toRosPose(state.base.pose).orientation;
     base_msg.velocity.angular = ConversionUtils::toRosVector(state.base.ang_vel);
     base_msg.acceleration.angular = ConversionUtils::toRosVector(state.base.ang_acc);
     state_msg.base = base_msg;
     desired_base_msg.name = "base";
-    desired_base_msg.is_foot = false;
     desired_base_msg.pose.orientation = desired_torso_msg.pose.orientation;
     desired_base_msg.velocity.angular = desired_torso_msg.velocity.angular;
     desired_base_msg.acceleration.angular = desired_torso_msg.acceleration.angular;

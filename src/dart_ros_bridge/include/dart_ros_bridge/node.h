@@ -16,8 +16,8 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "dart_ros_bridge/invdyn.h"
-#include "ismpc_interfaces/msg/state.hpp"
 #include "ismpc_interfaces/msg/lip_data.hpp"
+#include "ismpc_interfaces/msg/state.hpp"
 #include "ismpc_ros_utils/utils.h"
 
 typedef std::chrono::high_resolution_clock Time;
@@ -54,6 +54,11 @@ class DartBridgeNode : public rclcpp::Node {
     int mpc_step = 0;
     float mpc_time = 0.0f;
 
+    // Debugging stuff
+    Eigen::Vector3d com_pos = Eigen::Vector3d::Zero();
+    Eigen::Vector3d lf_pos = Eigen::Vector3d::Zero();
+    Eigen::Vector3d rf_pos = Eigen::Vector3d::Zero();
+
     rclcpp::Logger logger = rclcpp::get_logger("DartBridgeNode");
 
     /**
@@ -64,7 +69,7 @@ class DartBridgeNode : public rclcpp::Node {
      *
      * @return The computed ZMP as a geometry_msgs::msg::Vector3
      */
-    geometry_msgs::msg::Vector3 computeZmp();
+    void computeZmp(ismpc_interfaces::msg::LipData& lip_data);
     Eigen::Vector3d zmp_pos = Eigen::Vector3d::Zero();
     std::pair<Eigen::Vector3d, bool> computeFootZmp(const dart::dynamics::BodyNode& foot) const;
 

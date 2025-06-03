@@ -17,9 +17,7 @@ Eigen::Vector3d Math::positionDifference(const Pose& current, const Pose& desire
 Eigen::Vector3d Math::rotationDifference(const Pose& current, const Pose& desired) {
     Eigen::Matrix3d rot_desired = ConversionUtils::toEigenMatrix(desired.orientation);
     Eigen::Matrix3d rot_current = ConversionUtils::toEigenMatrix(current.orientation);
-
-    Eigen::Matrix3d R_error = rot_desired * rot_current.transpose();  // TODO: correct?????
-
+    Eigen::Matrix3d R_error = rot_desired * rot_current.transpose();
     return matrixToRotvec(R_error);
 }
 
@@ -36,7 +34,21 @@ Eigen::VectorXd Math::poseDifference(const Pose& current, const Pose& desired) {
 
 Eigen::Vector3d Math::matrixToRotvec(const Eigen::Matrix3d& rotation_matrix) {
     Eigen::AngleAxisd angle_axis(rotation_matrix);
-    return angle_axis.angle() * angle_axis.axis();
+    double angle = angle_axis.angle();
+
+    // Handle small angles
+    if (angle < 1e-6) {
+        return Eigen::Vector3d::Zero();
+    }
+
+    // Handle angles near π (180 degrees)
+    if (angle > M_PI - 1e-6) {
+        // Use alternative computation for numerical stability
+        Eigen::Vector3d axis = angle_axis.axis();
+        return axis * angle;
+    }
+
+    return angle_axis.axis() * angle;
 }
 
 Eigen::Matrix3d Math::rotvecToMatrix(const Eigen::Vector3d& rotation_vector) {

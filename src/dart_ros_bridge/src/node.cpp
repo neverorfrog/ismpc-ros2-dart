@@ -1,7 +1,9 @@
 #include "dart_ros_bridge/node.h"
 
 #include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Transform.h>
 #include <imgui.h>
+
 #include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 
 using geometry_msgs::msg::TransformStamped;
@@ -24,7 +26,7 @@ DartBridgeNode::DartBridgeNode() : Node("dart_ros_bridge") {
             "state", 10, std::bind(&DartBridgeNode::stateCallback, this, std::placeholders::_1));
 
         // Internal simulation timer
-        simTimer = this->create_wall_timer(std::chrono::milliseconds(10),
+        simTimer = this->create_wall_timer(std::chrono::milliseconds(12),
                                            std::bind(&DartBridgeNode::simulationCallback, this));
     } catch (const std::exception &e) {
         RCLCPP_ERROR(this->get_logger(), "Failed to load URDF: %s", e.what());
@@ -38,12 +40,6 @@ void DartBridgeNode::simulationCallback() {
         return;
     }
 
-    // TODO: Testing
-    // if(mpc_step > 250) {
-    //     RCLCPP_INFO(logger, "Simulation step limit reached. Stopping simulation.");
-    //     rclcpp::shutdown();
-    //     return;
-    // }
     world->step();
 
     publishLipData();
@@ -60,6 +56,15 @@ void DartBridgeNode::stateCallback(const ismpc_interfaces::msg::State::SharedPtr
 
     mpc_step = msg->k;
     mpc_time = msg->tk;
+    com_pos = ConversionUtils::toEigenVector(msg->lip.com_pos);
+    lf_pos = ConversionUtils::toEigenVector(msg->desired_left_foot.pose.position);
+    rf_pos = ConversionUtils::toEigenVector(msg->desired_right_foot.pose.position);
+
+    if (mpc_time > 10.0) {
+        RCLCPP_INFO(logger, "Simulation time exceeded 10 seconds, stopping simulation.");
+        rclcpp::shutdown();
+        return;
+    }
 
     RCLCPP_INFO(logger, "=====================================");
     RCLCPP_INFO(logger, "Received state update from MPC at time %.3f", mpc_time);
@@ -99,7 +104,7 @@ void DartBridgeNode::publishLipData() {
     lip_data.com_pos = ConversionUtils::toRosVector(robot->getCOM());
     lip_data.com_vel = ConversionUtils::toRosVector(robot->getCOMLinearVelocity());
     lip_data.com_acc = ConversionUtils::toRosVector(robot->getCOMLinearAcceleration());
-    lip_data.zmp_pos = computeZmp();
+    computeZmp(lip_data);
 
     lip_data_pub->publish(lip_data);
 }
@@ -109,24 +114,25 @@ void DartBridgeNode::publishTransforms() {
         return;
 
     Eigen::Isometry3d torso_transform = robot->getBodyNode("torso")->getWorldTransform();
+    Eigen::Isometry3d base_transform = robot->getBodyNode("body")->getWorldTransform();
     Eigen::Isometry3d lsole_transform = robot->getBodyNode("l_sole")->getWorldTransform();
     Eigen::Isometry3d rsole_transform = robot->getBodyNode("r_sole")->getWorldTransform();
 
     TransformStamped torso_tf = ConversionUtils::toRosTransform(torso_transform, "torso");
-    TransformStamped waist_tf = ConversionUtils::toRosTransform(torso_transform, "body");
+    TransformStamped base_tf = ConversionUtils::toRosTransform(base_transform, "body");
     TransformStamped lsole_tf = ConversionUtils::toRosTransform(lsole_transform, "l_sole");
     TransformStamped rsole_tf = ConversionUtils::toRosTransform(rsole_transform, "r_sole");
 
     std::vector<geometry_msgs::msg::TransformStamped> transforms;
     transforms.push_back(torso_tf);
-    transforms.push_back(waist_tf);
+    transforms.push_back(base_tf);
     transforms.push_back(lsole_tf);
     transforms.push_back(rsole_tf);
 
     tf_broadcaster->sendTransform(transforms);
 }
 
-geometry_msgs::msg::Vector3 DartBridgeNode::computeZmp() {
+void DartBridgeNode::computeZmp(ismpc_interfaces::msg::LipData &lip_data) {
     const auto &left_foot = robot->getBodyNode("l_sole");
     const auto &right_foot = robot->getBodyNode("r_sole");
 
@@ -135,6 +141,7 @@ geometry_msgs::msg::Vector3 DartBridgeNode::computeZmp() {
     Eigen::VectorXd grf_L = left_foot->getConstraintImpulse();
     Eigen::VectorXd grf_R = right_foot->getConstraintImpulse();
     Eigen::Vector3d left_cop, right_cop;
+    Eigen::Vector3d new_zmp_pos = zmp_pos;
 
     if (abs(grf_L[5]) > 0.1) {
         left_cop << -grf_L(1) / grf_L(5), grf_L(0) / grf_L(5), 0.0;
@@ -151,16 +158,22 @@ geometry_msgs::msg::Vector3 DartBridgeNode::computeZmp() {
     }
 
     if (left_contact && right_contact) {
-        zmp_pos = Eigen::Vector3d((left_cop(0) * grf_L[5] + right_cop(0) * grf_R[5]) / (grf_L[5] + grf_R[5]),
-                                  (left_cop(1) * grf_L[5] + right_cop(1) * grf_R[5]) / (grf_L[5] + grf_R[5]),
-                                  0.0);
+        new_zmp_pos = Eigen::Vector3d(
+            (left_cop(0) * grf_L[5] + right_cop(0) * grf_R[5]) / (grf_L[5] + grf_R[5]),
+            (left_cop(1) * grf_L[5] + right_cop(1) * grf_R[5]) / (grf_L[5] + grf_R[5]), 0.0);
     } else if (left_contact) {
-        zmp_pos = Eigen::Vector3d(left_cop(0), left_cop(1), 0.0);
+        new_zmp_pos = Eigen::Vector3d(left_cop(0), left_cop(1), 0.0);
     } else if (right_contact) {
-        zmp_pos = Eigen::Vector3d(right_cop(0), right_cop(1), 0.0);
+        new_zmp_pos = Eigen::Vector3d(right_cop(0), right_cop(1), 0.0);
     }
 
-    return ConversionUtils::toRosVector(zmp_pos);
+    new_zmp_pos[0] = std::clamp(new_zmp_pos[0], zmp_pos[0] - 0.1, zmp_pos[0] + 0.1);
+    new_zmp_pos[1] = std::clamp(new_zmp_pos[1], zmp_pos[1] - 0.1, zmp_pos[1] + 0.1);
+    zmp_pos = new_zmp_pos;
+
+    lip_data.zmp_pos = ConversionUtils::toRosVector(zmp_pos);
+    lip_data.left_contact = left_contact;
+    lip_data.right_contact = right_contact;
 }
 
 void DartBridgeNode::publishMarkers() {
@@ -203,6 +216,83 @@ void DartBridgeNode::publishMarkers() {
 
         marker_array.markers.push_back(marker);
     }
+
+    // Add ZMP marker
+    visualization_msgs::msg::Marker zmp_marker;
+    zmp_marker.header.frame_id = "world";
+    zmp_marker.header.stamp = this->get_clock()->now();
+    zmp_marker.ns = "zmp";
+    zmp_marker.id = robot->getNumBodyNodes();  // Unique ID for ZMP marker
+    zmp_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    zmp_marker.action = visualization_msgs::msg::Marker::ADD;
+    zmp_marker.pose.position.x = zmp_pos.x();
+    zmp_marker.pose.position.y = zmp_pos.y();
+    zmp_marker.pose.position.z = zmp_pos.z();
+    zmp_marker.pose.orientation.w = 1.0;                                 // No rotation
+    zmp_marker.scale.x = zmp_marker.scale.y = zmp_marker.scale.z = 0.1;  // Size of the ZMP marker
+    zmp_marker.color.r = 1.0;                                            // Red color for ZMP
+    zmp_marker.color.g = 0.0;
+    zmp_marker.color.b = 0.0;
+    zmp_marker.color.a = 1.0;  // Fully opaque
+    marker_array.markers.push_back(zmp_marker);
+
+    // Add COM marker
+    visualization_msgs::msg::Marker com_marker;
+    com_marker.header.frame_id = "world";
+    com_marker.header.stamp = this->get_clock()->now();
+    com_marker.ns = "com";
+    com_marker.id = robot->getNumBodyNodes() + 1;  // Unique ID for COM marker
+    com_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    com_marker.action = visualization_msgs::msg::Marker::ADD;
+    com_marker.pose.position.x = robot->getCOM()[0];
+    com_marker.pose.position.y = robot->getCOM()[1];
+    com_marker.pose.position.z = robot->getCOM()[2];
+    com_marker.pose.orientation.w = 1.0;                                 // No rotation
+    com_marker.scale.x = com_marker.scale.y = com_marker.scale.z = 0.1;  // Size of the COM marker
+    com_marker.color.r = 0.0;                                            // Blue color for COM
+    com_marker.color.g = 0.0;
+    com_marker.color.b = 1.0;
+    com_marker.color.a = 1.0;  // Fully opaque
+    marker_array.markers.push_back(com_marker);
+
+    // Add left foot marker
+    visualization_msgs::msg::Marker lfoot_marker;
+    lfoot_marker.header.frame_id = "world";
+    lfoot_marker.header.stamp = this->get_clock()->now();
+    lfoot_marker.ns = "left_foot";
+    lfoot_marker.id = robot->getNumBodyNodes() + 2;  // Unique ID for left foot marker
+    lfoot_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    lfoot_marker.action = visualization_msgs::msg::Marker::ADD;
+    lfoot_marker.pose.position.x = lf_pos.x();
+    lfoot_marker.pose.position.y = lf_pos.y();
+    lfoot_marker.pose.position.z = lf_pos.z();
+    lfoot_marker.pose.orientation.w = 1.0;                                     // No rotation
+    lfoot_marker.scale.x = lfoot_marker.scale.y = lfoot_marker.scale.z = 0.1;  // Size of the left foot marker
+    lfoot_marker.color.r = 0.0;
+    lfoot_marker.color.g = 1.0;
+    lfoot_marker.color.b = 1.0;
+    lfoot_marker.color.a = 1.0;  // Fully opaque
+    marker_array.markers.push_back(lfoot_marker);
+
+    // Add right foot marker
+    visualization_msgs::msg::Marker rfoot_marker;
+    rfoot_marker.header.frame_id = "world";
+    rfoot_marker.header.stamp = this->get_clock()->now();
+    rfoot_marker.ns = "right_foot";
+    rfoot_marker.id = robot->getNumBodyNodes() + 3;  // Unique ID for right foot marker
+    rfoot_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    rfoot_marker.action = visualization_msgs::msg::Marker::ADD;
+    rfoot_marker.pose.position.x = rf_pos.x();
+    rfoot_marker.pose.position.y = rf_pos.y();
+    rfoot_marker.pose.position.z = rf_pos.z();
+    rfoot_marker.pose.orientation.w = 1.0;  // No rotation
+    rfoot_marker.scale.x = rfoot_marker.scale.y = rfoot_marker.scale.z
+        = 0.1;  // Size of the right foot marker
+    rfoot_marker.color.r = 0.0;
+    rfoot_marker.color.g = 1.0;
+    rfoot_marker.color.b = 1.0;
+    rfoot_marker.color.a = 1.0;  // Fully opaque
+    marker_array.markers.push_back(rfoot_marker);
 
     marker_pub->publish(marker_array);
 }
@@ -248,7 +338,7 @@ void DartBridgeNode::constructWorld() {
     }
     world = dart::simulation::World::create("dart_world");
     world->setGravity(Eigen::Vector3d(0, 0, -9.81));
-    world->setTimeStep(0.01);
+    world->setTimeStep(0.012); // TODO: Make configurable
 
     dart::utils::DartLoader::Options options;
     dart::utils::DartLoader loader(options);

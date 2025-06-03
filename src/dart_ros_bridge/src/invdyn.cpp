@@ -63,6 +63,15 @@ Eigen::VectorXd InverseDynamics::computeJointTorques(const State::SharedPtr stat
     std::map<std::string, Eigen::MatrixXd> pos_errors = getPositionErrors(state);
     std::map<std::string, Eigen::MatrixXd> vel_errors = getVelocityErrors(state);
 
+    RCLCPP_INFO(rclcpp::get_logger("InverseDynamics"), "======================================");
+    RCLCPP_INFO(rclcpp::get_logger("InverseDynamics"), "\nDesired left foot position\n[%.3f, %.3f, %.3f]",
+                state->desired_left_foot.pose.position.x, state->desired_left_foot.pose.position.y,
+                state->desired_left_foot.pose.position.z);
+    RCLCPP_INFO(rclcpp::get_logger("InverseDynamics"), "\nDesired right foot position\n[%.3f, %.3f, %.3f]",
+                state->desired_right_foot.pose.position.x, state->desired_right_foot.pose.position.y,
+                state->desired_right_foot.pose.position.z);
+    RCLCPP_INFO(rclcpp::get_logger("InverseDynamics"), "======================================\n\n\n");
+
     Eigen::MatrixXd H = Eigen::MatrixXd::Zero(n_vars_, n_vars_);
     Eigen::VectorXd g = Eigen::VectorXd::Zero(n_vars_);
 
@@ -81,17 +90,8 @@ Eigen::VectorXd InverseDynamics::computeJointTorques(const State::SharedPtr stat
                                    - Jdot[task] * robot_->getVelocities();
         Eigen::VectorXd g_task = -tasks_config_.weights[task] * J[task].transpose() * task_ref;
 
-        // Fill the Hessian matrix H
-        for (size_t i = 0; i < q_ddot_indices.size(); ++i) {
-            for (size_t j = 0; j < q_ddot_indices.size(); ++j) {
-                H(q_ddot_indices[i], q_ddot_indices[j]) += H_task(i, j);
-            }
-        }
-
-        // Fill the gradient vector g
-        for (size_t i = 0; i < q_ddot_indices.size(); ++i) {
-            g(q_ddot_indices[i]) += g_task(i);
-        }
+        H.block(0, 0, dofs_, dofs_) += H_task;
+        g.head(dofs_) += g_task;
     }
 
     // Regularization term for contact forces
@@ -106,10 +106,10 @@ Eigen::VectorXd InverseDynamics::computeJointTorques(const State::SharedPtr stat
 
     // Contact Jacobian
     Eigen::MatrixXd J_c = Eigen::MatrixXd::Zero(num_contact_dims_, dofs_);
-    if (state->left_foot.in_contact) {
+    if (state->lip.left_contact) {
         J_c.block(0, 0, 6, dofs_) = J["l_foot"];
     }
-    if (state->right_foot.in_contact) {
+    if (state->lip.right_contact) {
         J_c.block(6, 0, 6, dofs_) = J["r_foot"];
     }
 
@@ -146,24 +146,8 @@ Eigen::VectorXd InverseDynamics::computeJointTorques(const State::SharedPtr stat
     // Create block diagonal matrix for both contacts
     // A_ineq has shape (n_ineq_constraints_, n_vars_)
     // We need to fill the contact force constraint part
-    int constraint_start = 0;  // Starting row for contact constraints
-    int contact_dims = 6;      // 6D contact forces per contact
-
-    // Left foot contact constraints
-    A_ineq.block(constraint_start, f_c_indices[0], 9, contact_dims) = A;
-    constraint_start += 9;
-
-    // Right foot contact constraints
-    A_ineq.block(constraint_start, f_c_indices[6], 9, contact_dims) = A;
-    constraint_start += 9;
-
-    // std::ostringstream fc_oss;
-    // fc_oss << "f_c_indices: ";
-    // for (size_t i = 0; i < f_c_indices.size(); ++i) {
-    //     fc_oss << f_c_indices[i];
-    //     if (i < f_c_indices.size() - 1) fc_oss << ", ";
-    // }
-    // RCLCPP_INFO(rclcpp::get_logger("inverse_dynamics"), "%s", fc_oss.str().c_str());
+    A_ineq.block(0, f_c_indices[0], 9, 6) = A;
+    A_ineq.block(9, f_c_indices[6], 9, 6) = A;
 
     // Compute solution using the QP solver
     qp_->settings.initial_guess = InitialGuessStatus::WARM_START_WITH_PREVIOUS_RESULT;
@@ -179,11 +163,6 @@ Eigen::VectorXd InverseDynamics::computeJointTorques(const State::SharedPtr stat
 
     Eigen::VectorXd command = tau.segment(6, dofs_ - 6);
 
-    std::ostringstream oss;
-    oss << command.transpose().format(
-        Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "\n", "", "", "[", "]"));
-    RCLCPP_INFO(rclcpp::get_logger("inverse_dynamics"), "COMMAND:\n%s", oss.str().c_str());
-
     return command;
 }
 
@@ -193,7 +172,7 @@ std::map<std::string, Eigen::MatrixXd> InverseDynamics::getJacobians() const {
     jacobians["l_foot"] = robot_->getJacobian(l_foot_, world_frame_);       // [6, n_dofs]
     jacobians["r_foot"] = robot_->getJacobian(r_foot_, world_frame_);       // [6, n_dofs]
     jacobians["torso"] = robot_->getAngularJacobian(torso_, world_frame_);  // [3, n_dofs]
-    jacobians["base"] = robot_->getAngularJacobian(base_, world_frame_);  // [3, n_dofs]
+    jacobians["base"] = robot_->getAngularJacobian(base_, world_frame_);    // [3, n_dofs]
     jacobians["com"] = robot_->getCOMLinearJacobian(world_frame_);          // [3, n_dofs]
     jacobians["joints"] = joint_selection_;                                 // [n_dofs, n_dofs]
     return jacobians;
@@ -205,7 +184,7 @@ std::map<std::string, Eigen::MatrixXd> InverseDynamics::getJacobiansDot() const 
     jacobians_dot["l_foot"] = robot_->getJacobianClassicDeriv(l_foot_, world_frame_);  // [6, n_dofs]
     jacobians_dot["r_foot"] = robot_->getJacobianClassicDeriv(r_foot_, world_frame_);  // [6, n_dofs]
     jacobians_dot["torso"] = robot_->getAngularJacobianDeriv(torso_, world_frame_);    // [3, n_dofs]
-    jacobians_dot["base"] = robot_->getAngularJacobianDeriv(base_, world_frame_);    // [3, n_dofs]
+    jacobians_dot["base"] = robot_->getAngularJacobianDeriv(base_, world_frame_);      // [3, n_dofs]
     jacobians_dot["com"] = robot_->getCOMLinearJacobianDeriv(world_frame_);            // [3, n_dofs]
     jacobians_dot["joints"] = Eigen::MatrixXd::Zero(robot_->getNumDofs(), robot_->getNumDofs());
     return jacobians_dot;
@@ -228,11 +207,6 @@ InverseDynamics::getFeedforwardTerms(const State::SharedPtr state) const {
     feedforward_terms["com"] = ConversionUtils::toEigenVector(state->desired_lip.com_acc);
     feedforward_terms["joints"] = Eigen::MatrixXd::Zero(robot_->getNumDofs(), 1);
 
-    std::ostringstream oss;
-    oss << feedforward_terms["com"].transpose().format(
-        Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "\n", "", "", "[", "]"));
-    RCLCPP_INFO(rclcpp::get_logger("Inverse Dynamics"), "\nFeedforward Term For COM\n%s", oss.str().c_str());
-
     return feedforward_terms;
 }
 
@@ -247,11 +221,6 @@ InverseDynamics::getPositionErrors(const State::SharedPtr state) const {
     position_errors["com"] = ConversionUtils::toEigenVector(state->desired_lip.com_pos)
                              - ConversionUtils::toEigenVector(state->lip.com_pos);
     position_errors["joints"] = initial_q_ - robot_->getPositions();
-
-    std::ostringstream oss;
-    oss << position_errors["torso"].transpose().format(
-        Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "\n", "", "", "[", "]"));
-    RCLCPP_INFO(rclcpp::get_logger("Inverse Dynamics"), "\nPosition Error For TORSO\n%s", oss.str().c_str());
 
     return position_errors;
 }
@@ -275,7 +244,7 @@ InverseDynamics::getVelocityErrors(const State::SharedPtr state) const {
     velocity_errors["torso"] = ConversionUtils::toEigenVector(state->desired_torso.velocity.angular)
                                - ConversionUtils::toEigenVector(state->torso.velocity.angular);
     velocity_errors["base"] = ConversionUtils::toEigenVector(state->desired_torso.velocity.angular)
-                                - ConversionUtils::toEigenVector(state->base.velocity.angular);
+                              - ConversionUtils::toEigenVector(state->base.velocity.angular);
     velocity_errors["com"] = ConversionUtils::toEigenVector(state->desired_lip.com_vel)
                              - ConversionUtils::toEigenVector(state->lip.com_vel);
     velocity_errors["joints"] = initial_qdot_ - robot_->getVelocities();
