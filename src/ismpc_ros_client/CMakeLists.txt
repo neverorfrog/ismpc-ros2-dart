@@ -74,7 +74,6 @@ target_link_libraries(${PROJECT_LIB}_exec ${PROJECT_LIB})
 # ============================== PACKAGE INSTALL ============================================
 install(DIRECTORY include/ DESTINATION include/)
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
-install(DIRECTORY config/ DESTINATION config/)
 
 install(TARGETS ${PROJECT_LIBRARY} ${PROJECT_LIB}_exec
     EXPORT ${PROJECT_NAME}Targets
