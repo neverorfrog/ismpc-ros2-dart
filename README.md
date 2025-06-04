@@ -2,10 +2,12 @@
 
 ## Installation And Usage
 
-Run 
+Clone the repo recursively
+
+To build the code, run 
 
 ```
-pixi install
+pixi run colcon build
 ```
 
 and then in two separate terminals, first run
